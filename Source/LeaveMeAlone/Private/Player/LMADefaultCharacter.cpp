@@ -8,6 +8,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Components/LMAHealthComponent.h"
 
 
 ALMADefaultCharacter::ALMADefaultCharacter()
@@ -27,6 +28,8 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 	CameraComponent->SetupAttachment(SpringArmComponent);
 	CameraComponent->SetFieldOfView(FOV);
 	CameraComponent->bUsePawnControlRotation = false;
+
+	HealthComponent = CreateDefaultSubobject<ULMAHealthComponent>(TEXT("HealthComponent"));
 
 	if (UCharacterMovementComponent* CharMove = GetCharacterMovement())
 	{
@@ -50,18 +53,14 @@ void ALMADefaultCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC) return;
-
-	FHitResult ResultHit;
-	PC->GetHitResultUnderCursor(ECC_GameTraceChannel1, true, ResultHit);
-
-	if (CurrentCursor)
+	if (CursorMaterial)
 	{
-		CurrentCursor->SetWorldLocation(ResultHit.Location);
+		CurrentCursor = UGameplayStatics::SpawnDecalAtLocation(GetWorld(), CursorMaterial, CursorSize, FVector(0));
+	}
 
-		float Yaw = UKismetMathLibrary::FindLookAtRotation(GetActorLocation(), ResultHit.Location).Yaw;
-		CurrentCursor->SetWorldRotation(FRotator(0.0f, Yaw, 0.0f));
+	if (HealthComponent)
+	{
+		HealthComponent->OnDeath.AddUObject(this, &ALMADefaultCharacter::OnDeath);
 	}
 }
 
@@ -69,12 +68,14 @@ void ALMADefaultCharacter::Tick(float DeltaTime )
 {
 	Super::Tick(DeltaTime);
 
+
 	APlayerController* PC = Cast<APlayerController>(GetController());
 	if (!PC) return;
-	
+
 	FHitResult ResultHit;
 	if (PC->GetHitResultUnderCursor(ECC_Visibility, true, ResultHit))
 	{
+
 		FVector Direction = ResultHit.Location - GetActorLocation();
 		Direction.Z = 0.0f;
 
@@ -85,11 +86,14 @@ void ALMADefaultCharacter::Tick(float DeltaTime )
 			LookAtRot.Roll = 0.0f;
 
 			FRotator CurrentControllerRot = PC->GetControlRotation();
-
 			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, DeltaTime, 5.0f);
-
 			PC->SetControlRotation(NewControllerRot);
 		}
+	}
+
+	if (!(HealthComponent && HealthComponent->IsDead()))
+	{
+		RotationPlayerOnCursor();
 	}
 }
 
@@ -129,6 +133,49 @@ void ALMADefaultCharacter::ZoomCamera(const FInputActionValue& Value)
 		if (SpringArmComponent)
 		{
 			SpringArmComponent->TargetArmLength = TargetArmLength;
+		}
+	}
+}
+
+void ALMADefaultCharacter::OnDeath()
+{
+	if (CurrentCursor)
+	{
+		CurrentCursor->DestroyRenderState_Concurrent();
+	}
+
+	PlayAnimMontage(DeathMontage);
+	GetCharacterMovement()->DisableMovement();
+	SetLifeSpan(5.0f);
+
+	if (Controller)
+	{
+		Controller->ChangeState(NAME_Spectating);
+	}
+}
+
+void ALMADefaultCharacter::RotationPlayerOnCursor()
+{
+
+	APlayerController* PC = Cast<APlayerController>(GetController());
+	if (!PC) return;
+
+	FHitResult ResultHit;
+	if (PC->GetHitResultUnderCursor(ECC_Visibility, true, ResultHit))
+	{
+
+		FVector Direction = ResultHit.Location - GetActorLocation();
+		Direction.Z = 0.0f;
+
+		if (!Direction.IsNearlyZero())
+		{
+			FRotator LookAtRot = FRotationMatrix::MakeFromX(Direction).Rotator();
+			LookAtRot.Pitch = 0.0f;
+			LookAtRot.Roll = 0.0f;
+
+			FRotator CurrentControllerRot = PC->GetControlRotation();
+			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, 0.05f, 5.0f);
+			PC->SetControlRotation(NewControllerRot);
 		}
 	}
 }

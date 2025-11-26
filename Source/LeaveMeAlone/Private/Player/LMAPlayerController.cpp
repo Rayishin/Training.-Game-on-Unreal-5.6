@@ -23,7 +23,7 @@ void ALMAPlayerController::BeginPlay()
 	Super::BeginPlay();
 
 	SetInputMode(FInputModeGameOnly());
-	bShowMouseCursor = false;
+	bShowMouseCursor = true;
 
 	EnableInput(this);
 
@@ -34,4 +34,10 @@ void ALMAPlayerController::BeginPlay()
 			Subsystem->AddMappingContext(IMC_PlayerMovement, 0);
 		}
 	}
+}
+
+void ALMAPlayerController::BeginSpectatingState()
+{
+	SetControlRotation(FRotator(-75.0f, 0.0f, 0.0f));
+	Super::BeginSpectatingState();
 }

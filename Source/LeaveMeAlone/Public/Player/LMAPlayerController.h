@@ -23,4 +23,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	class UInputMappingContext* IMC_PlayerMovement;
+
+	virtual void BeginSpectatingState() override;
 };

@@ -9,8 +9,12 @@
 #include "InputMappingContext.h"
 #include "LMADefaultCharacter.generated.h"
 
+
 class USpringArmComponent;
 class UCameraComponent;
+class ULMAHealthComponent;
+class UAnimMontage;
+
 
 UCLASS()
 class LEAVEMEALONE_API ALMADefaultCharacter : public ACharacter
@@ -34,14 +38,14 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* IA_MoveRight;
 
-	UPROPERTY()
-	UDecalComponent* CurrentCursor = nullptr;
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Cursor")
+    class UDecalComponent* CurrentCursor;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cursor")
-	UMaterialInterface* CursorMaterial = nullptr;
+	class UMaterialInterface* CursorMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cursor")
-	FVector CursorSize = FVector(20.0f, 40.0f, 40.0f);
+	FVector CursorSize = FVector(100.0f, 100.0f, 100.0f);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class USpringArmComponent* SpringArmComponent;
@@ -66,6 +70,12 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
 	float MoveSpeed = 600.0f;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components|Health")
+	ULMAHealthComponent* HealthComponent;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Animation")
+	UAnimMontage* DeathMontage;
+
 public:	
 	virtual void Tick(float DeltaTime) override;
 
@@ -79,4 +89,8 @@ private:
 	float YRotation = -75.0f;
 	float ArmLength = 1400.0f;
 	float FOV = 55.0f;
+
+	void OnDeath();
+
+	void RotationPlayerOnCursor();
 };
