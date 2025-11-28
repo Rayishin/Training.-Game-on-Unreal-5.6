@@ -9,6 +9,8 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/LMAHealthComponent.h"
+#include "GameFramework/PlayerController.h"
+#include "Animation/AnimInstanceProxy.h"
 
 
 ALMADefaultCharacter::ALMADefaultCharacter()
@@ -47,20 +49,63 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
+
+	CurrentCursor = CreateDefaultSubobject<UDecalComponent>(TEXT("CurrentCursor"));
+	if (CurrentCursor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("CurrentCursor created successfully."));
+
+		CurrentCursor->SetupAttachment(RootComponent);
+		CurrentCursor->DecalSize = FVector(50.0f, 50.0f, 50.0f);
+		CurrentCursor->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
+		CurrentCursor->SetVisibility(false);
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create CurrentCursor!"));
+	}
 }
 
 void ALMADefaultCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 
+
 	if (CursorMaterial)
 	{
-		CurrentCursor = UGameplayStatics::SpawnDecalAtLocation(GetWorld(), CursorMaterial, CursorSize, FVector(0));
+		UE_LOG(LogTemp, Warning, TEXT("Cursor material is assigned."));
+
+		UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(CursorMaterial, this);
+		if (DynamicMaterial)
+		{
+			CurrentCursor->SetMaterial(0, DynamicMaterial);
+			UE_LOG(LogTemp, Warning, TEXT("Dynamic Material applied to CurrentCursor."));
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("Failed to create Dynamic Material!"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("CursorMaterial is not assigned in editor!"));
 	}
 
 	if (HealthComponent)
 	{
 		HealthComponent->OnDeath.AddUObject(this, &ALMADefaultCharacter::OnDeath);
+
+		OnHealthChanged(HealthComponent->GetHealth());
+		HealthComponent->OnHealthChanged.AddUObject(this, &ALMADefaultCharacter::OnHealthChanged);
+	}
+
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		if (UEnhancedInputLocalPlayerSubsystem* Subsystem = ULocalPlayer::GetSubsystem<UEnhancedInputLocalPlayerSubsystem>(PC->GetLocalPlayer()))
+		{
+			Subsystem->AddMappingContext(IMC_PlayerMovement, 0);
+		}
 	}
 }
 
@@ -73,27 +118,69 @@ void ALMADefaultCharacter::Tick(float DeltaTime )
 	if (!PC) return;
 
 	FHitResult ResultHit;
-	if (PC->GetHitResultUnderCursor(ECC_Visibility, true, ResultHit))
+	bool bHit = PC->GetHitResultUnderCursor(ECC_Visibility, true, ResultHit);
+
+	UE_LOG(LogTemp, Warning, TEXT("Hit under cursor: %s"), bHit ? TEXT("Yes") : TEXT("No"));
+
+	if (!bHit || !CurrentCursor)
 	{
-
-		FVector Direction = ResultHit.Location - GetActorLocation();
-		Direction.Z = 0.0f;
-
-		if (!Direction.IsNearlyZero())
+		if (CurrentCursor)
 		{
+			CurrentCursor->SetVisibility(false);
+		}
+			return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("Hit location: %s"), *ResultHit.Location.ToString());
+
+	CurrentCursor->SetVisibility(true);
+	FVector HitLocation = ResultHit.Location; 
+	CurrentCursor->SetWorldLocation(HitLocation);
+
+	// FRotator DecalRotator = ResultHit.Normal.Rotation();
+	// DecalRotator.Pitch += 90.f;
+	// CurrentCursor->SetWorldRotation(DecalRotator.Quaternion());
+
+	// UE_LOG(LogTemp, Warning, TEXT("Decal rotation: %s"), *DecalRotator.ToString());
+
+	FVector HitNormal = ResultHit.Normal;
+	FVector TargetForward = HitNormal;
+	FVector TargetUp = FVector(0, 0, 1);
+	FQuat DecalRotation = FQuat::FindBetweenVectors(FVector(1, 0, 0), TargetForward);
+	CurrentCursor->SetWorldRotation(DecalRotation);
+
+	FVector Direction = ResultHit.Location - GetActorLocation();
+	Direction.Z = 0.0f;
+
+	if (!Direction.IsNearlyZero())
+	{
 			FRotator LookAtRot = FRotationMatrix::MakeFromX(Direction).Rotator();
 			LookAtRot.Pitch = 0.0f;
 			LookAtRot.Roll = 0.0f;
 
 			FRotator CurrentControllerRot = PC->GetControlRotation();
-			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, DeltaTime, 5.0f);
+			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, GetWorld()->GetDeltaSeconds(), 5.0f);
 			PC->SetControlRotation(NewControllerRot);
-		}
 	}
 
 	if (!(HealthComponent && HealthComponent->IsDead()))
 	{
 		RotationPlayerOnCursor();
+	}
+
+	if (bIsSprinting)
+	{
+		Stamina -= StaminaDrainRate * DeltaTime;
+		if (Stamina <= 0.0f)
+		{
+			Stamina = 0.0f;
+			StopSprint(); 
+		}
+	}
+	else
+	{
+		Stamina += StaminaRegenRate * DeltaTime;
+		Stamina = FMath::Clamp(Stamina, 0.0f, MaxStamina);
 	}
 }
 
@@ -106,6 +193,8 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(IA_MoveForward, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveForward);
 		EnhancedInputComponent->BindAction(IA_MoveRight, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveRight);
 		EnhancedInputComponent->BindAction(IA_ZoomCameraAction, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::ZoomCamera);
+		EnhancedInputComponent->BindAction(IA_Sprint, ETriggerEvent::Started, this, &ALMADefaultCharacter::StartSprint);
+		EnhancedInputComponent->BindAction(IA_Sprint, ETriggerEvent::Completed, this, &ALMADefaultCharacter::StopSprint);
 	}
 }
 
@@ -174,8 +263,55 @@ void ALMADefaultCharacter::RotationPlayerOnCursor()
 			LookAtRot.Roll = 0.0f;
 
 			FRotator CurrentControllerRot = PC->GetControlRotation();
-			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, 0.05f, 5.0f);
+			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, GetWorld()->GetDeltaSeconds(), 5.0f);
 			PC->SetControlRotation(NewControllerRot);
 		}
 	}
+}
+
+void ALMADefaultCharacter::OnHealthChanged(float NewHealth)
+{
+	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FString::Printf(TEXT("Health = %f"), NewHealth));
+}
+
+void ALMADefaultCharacter::StartSprint()
+{
+	if (bIsSprinting || !GetCharacterMovement() || Stamina <= 0.0f)
+	return;
+
+	bIsSprinting = true;
+
+	SetIsSprintingInAnimation(true);
+
+	GetCharacterMovement()->MaxWalkSpeed = SprintMoveSpeed;
+
+	if (SprintMontage && GetMesh() && GetMesh()->AnimScriptInstance)
+	{
+		if (!GetMesh()->AnimScriptInstance->Montage_IsPlaying(SprintMontage))
+		{
+			GetMesh()->AnimScriptInstance->Montage_Play(SprintMontage, 1.0f);
+		}
+	}
+}
+
+void ALMADefaultCharacter::StopSprint()
+{
+	if (!bIsSprinting) 
+	return;
+
+	bIsSprinting = false;
+	
+	SetIsSprintingInAnimation(false);
+
+	GetCharacterMovement()->MaxWalkSpeed = BaseMoveSpeed;
+
+	if (SprintMontage && GetMesh() && GetMesh()->AnimScriptInstance)
+	{
+		GetMesh()->AnimScriptInstance->Montage_Stop(0.2f, SprintMontage);
+	}
+}
+
+void ALMADefaultCharacter::SetIsSprintingInAnimation(bool bNewSprintingValue)
+{
+	
 }

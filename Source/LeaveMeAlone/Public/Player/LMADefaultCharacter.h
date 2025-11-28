@@ -45,7 +45,7 @@ protected:
 	class UMaterialInterface* CursorMaterial;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Cursor")
-	FVector CursorSize = FVector(100.0f, 100.0f, 100.0f);
+	FVector CursorSize;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
 	class USpringArmComponent* SpringArmComponent;
@@ -76,6 +76,33 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* DeathMontage;
 
+	UPROPERTY(BlueprintReadWrite, Category = "Sprint")
+	float Stamina = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float MaxStamina = 100.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float StaminaRegenRate = 10.0f; 
+
+	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	float StaminaDrainRate = 20.0f; 
+
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	float BaseMoveSpeed = 400.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	float SprintMoveSpeed = 600.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* IA_Sprint;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = true))
+	UAnimMontage* SprintMontage;
+
+	UPROPERTY(BlueprintReadWrite, Category = "Sprint")
+	bool bIsSprinting = false;
+
 public:	
 	virtual void Tick(float DeltaTime) override;
 
@@ -85,6 +112,18 @@ public:
 	virtual void MoveRight(const FInputActionValue& Value);
 	virtual void ZoomCamera(const FInputActionValue& Value);
 
+	UFUNCTION()
+	ULMAHealthComponent* GetHealthComponent() const { return HealthComponent; }
+
+	void StartSprint();
+	void StopSprint();
+
+	bool IsSprinting() const { return bIsSprinting; }
+	float GetStamina() const { return Stamina; }
+
+	UFUNCTION(BlueprintCallable, Category = "Animation")
+	void SetIsSprintingInAnimation(bool bNewSprintingValue);
+
 private:
 	float YRotation = -75.0f;
 	float ArmLength = 1400.0f;
@@ -93,4 +132,9 @@ private:
 	void OnDeath();
 
 	void RotationPlayerOnCursor();
+
+	void OnHealthChanged(float NewHealth);
+
+	FInputActionValue OnSprintPressed;
+	FInputActionValue OnSprintReleased;
 };
