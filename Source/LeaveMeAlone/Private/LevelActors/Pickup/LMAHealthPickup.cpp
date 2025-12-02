@@ -4,10 +4,10 @@
 #include "LevelActors/Pickup/LMAHealthPickup.h"
 #include "Components/LMAHealthComponent.h"
 
-// Sets default values
+
 ALMAHealthPickup::ALMAHealthPickup()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+
 	PrimaryActorTick.bCanEverTick = true;
 
 	SphereComponent = CreateDefaultSubobject<USphereComponent>("SphereComponent");
@@ -16,14 +16,12 @@ ALMAHealthPickup::ALMAHealthPickup()
 
 }
 
-// Called when the game starts or when spawned
 void ALMAHealthPickup::BeginPlay()
 {
 	Super::BeginPlay();
 	
 }
 
-// Called every frame
 void ALMAHealthPickup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

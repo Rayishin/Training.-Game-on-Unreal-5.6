@@ -8,17 +8,18 @@
 #include "Player/LMADefaultCharacter.h"
 #include "LMAHealthPickup.generated.h"
 
+
 UCLASS()
 class LEAVEMEALONE_API ALMAHealthPickup : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
-	// Sets default values for this actor's properties
+
 	ALMAHealthPickup();
 
 protected:
-	// Called when the game starts or when spawned
+
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, Category = "Pickup")
@@ -33,13 +34,12 @@ protected:
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
 
 public:	
-	// Called every frame
+
 	virtual void Tick(float DeltaTime) override;
 
 private:
+
 	bool GivePickup(ALMADefaultCharacter* Character);
-
 	void PickupWasTaken();
-
 	void RespawnPickup();
 };

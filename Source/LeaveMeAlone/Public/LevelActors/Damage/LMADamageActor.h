@@ -14,11 +14,11 @@ class LEAVEMEALONE_API ALMADamageActor : public AActor
 	GENERATED_BODY()
 	
 public:	
-	// Sets default values for this actor's properties
+	
 	ALMADamageActor();
 
 protected:
-	// Called when the game starts or when spawned
+	
 	virtual void BeginPlay() override;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
@@ -34,7 +34,7 @@ protected:
 	float SphereRadius = 100.0f;
 
 public:	
-	// Called every frame
+	
 	virtual void Tick(float DeltaTime) override;
 
 };

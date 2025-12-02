@@ -7,9 +7,7 @@
 #include "InputMappingContext.h"
 #include "LMAPlayerController.generated.h"
 
-/**
- * 
- */
+
 UCLASS()
 class LEAVEMEALONE_API ALMAPlayerController : public APlayerController
 {

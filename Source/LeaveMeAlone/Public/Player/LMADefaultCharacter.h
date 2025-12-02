@@ -67,44 +67,42 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* IA_ZoomCameraAction;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Movement")
-	float MoveSpeed = 600.0f;
-
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components|Health")
 	ULMAHealthComponent* HealthComponent;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Animation")
 	UAnimMontage* DeathMontage;
 
-	UPROPERTY(BlueprintReadWrite, Category = "Sprint")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stamina")
 	float Stamina = 100.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stamina")
 	float MaxStamina = 100.0f;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stamina")
 	float StaminaRegenRate = 10.0f; 
 
-	UPROPERTY(EditDefaultsOnly, Category = "Stamina")
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Stamina")
 	float StaminaDrainRate = 20.0f; 
 
-	UPROPERTY(EditDefaultsOnly, Category = "Movement")
-	float BaseMoveSpeed = 400.0f;
+	UPROPERTY(ReplicatedUsing = OnRep_IsSprinting, BlueprintReadOnly, Category = "Movement")
+	bool bIsSprinting = false;
 
-	UPROPERTY(EditDefaultsOnly, Category = "Movement")
+	UFUNCTION()
+	void OnRep_IsSprinting();
+
+	virtual void Tick(float DeltaTime) override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement")
+	float MoveSpeed = 400.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Movement")
 	float SprintMoveSpeed = 600.0f;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* IA_Sprint;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Animation", meta = (AllowPrivateAccess = true))
-	UAnimMontage* SprintMontage;
-
-	UPROPERTY(BlueprintReadWrite, Category = "Sprint")
-	bool bIsSprinting = false;
-
 public:	
-	virtual void Tick(float DeltaTime) override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -115,14 +113,24 @@ public:
 	UFUNCTION()
 	ULMAHealthComponent* GetHealthComponent() const { return HealthComponent; }
 
+	UFUNCTION(BlueprintCallable, Category = "Stamina")
 	void StartSprint();
+
+	UFUNCTION(BlueprintCallable, Category = "Stamina")
 	void StopSprint();
 
-	bool IsSprinting() const { return bIsSprinting; }
+	void UpdateStamina(float DeltaTime);
+
+	void UpdateMovementSpeed();
+
+	UFUNCTION(BlueprintPure, Category = "Stamina")
 	float GetStamina() const { return Stamina; }
 
-	UFUNCTION(BlueprintCallable, Category = "Animation")
-	void SetIsSprintingInAnimation(bool bNewSprintingValue);
+	UFUNCTION(BlueprintPure, Category = "Stamina")
+	bool GetIsSprinting() const { return bIsSprinting; }
+
+	UFUNCTION(BlueprintPure, Category = "Stamina")
+	float GetMaxStamina() const { return MaxStamina; }
 
 private:
 	float YRotation = -75.0f;

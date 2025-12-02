@@ -4,6 +4,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/DecalComponent.h"
 #include "Components/InputComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -11,6 +12,7 @@
 #include "Components/LMAHealthComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Animation/AnimInstanceProxy.h"
+#include "Net/UnrealNetwork.h"
 
 
 ALMADefaultCharacter::ALMADefaultCharacter()
@@ -168,20 +170,7 @@ void ALMADefaultCharacter::Tick(float DeltaTime )
 		RotationPlayerOnCursor();
 	}
 
-	if (bIsSprinting)
-	{
-		Stamina -= StaminaDrainRate * DeltaTime;
-		if (Stamina <= 0.0f)
-		{
-			Stamina = 0.0f;
-			StopSprint(); 
-		}
-	}
-	else
-	{
-		Stamina += StaminaRegenRate * DeltaTime;
-		Stamina = FMath::Clamp(Stamina, 0.0f, MaxStamina);
-	}
+	UpdateStamina(DeltaTime);
 }
 
 void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -190,11 +179,26 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent))
 	{
+		UE_LOG(LogTemp, Warning, TEXT("EnhancedInputComponent is valid"));
+
 		EnhancedInputComponent->BindAction(IA_MoveForward, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveForward);
 		EnhancedInputComponent->BindAction(IA_MoveRight, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveRight);
 		EnhancedInputComponent->BindAction(IA_ZoomCameraAction, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::ZoomCamera);
-		EnhancedInputComponent->BindAction(IA_Sprint, ETriggerEvent::Started, this, &ALMADefaultCharacter::StartSprint);
-		EnhancedInputComponent->BindAction(IA_Sprint, ETriggerEvent::Completed, this, &ALMADefaultCharacter::StopSprint);
+
+		if (IA_Sprint)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("IA_Sprint is valid"));
+			EnhancedInputComponent->BindAction(IA_Sprint, ETriggerEvent::Started, this, &ALMADefaultCharacter::StartSprint);
+			EnhancedInputComponent->BindAction(IA_Sprint, ETriggerEvent::Completed, this, &ALMADefaultCharacter::StopSprint);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("IA_Sprint is null!"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("EnhancedInputComponent is null!"));
 	}
 }
 
@@ -276,42 +280,65 @@ void ALMADefaultCharacter::OnHealthChanged(float NewHealth)
 
 void ALMADefaultCharacter::StartSprint()
 {
-	if (bIsSprinting || !GetCharacterMovement() || Stamina <= 0.0f)
-	return;
+	UE_LOG(LogTemp, Warning, TEXT("StartSprint called!"));
+
+	if (Stamina <= 0.1f)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("StartSprint: Stamina depleted, cannot sprint"));
+		return;
+	}
 
 	bIsSprinting = true;
+	UpdateMovementSpeed();
 
-	SetIsSprintingInAnimation(true);
-
-	GetCharacterMovement()->MaxWalkSpeed = SprintMoveSpeed;
-
-	if (SprintMontage && GetMesh() && GetMesh()->AnimScriptInstance)
-	{
-		if (!GetMesh()->AnimScriptInstance->Montage_IsPlaying(SprintMontage))
-		{
-			GetMesh()->AnimScriptInstance->Montage_Play(SprintMontage, 1.0f);
-		}
-	}
+	UE_LOG(LogTemp, Warning, TEXT(">>> SPRINT ACTIVATED! bIsSprinting = TRUE <<<"));
 }
 
 void ALMADefaultCharacter::StopSprint()
 {
-	if (!bIsSprinting) 
-	return;
-
-	bIsSprinting = false;
+	UE_LOG(LogTemp, Warning, TEXT("StopSprint called"));
 	
-	SetIsSprintingInAnimation(false);
+	bIsSprinting = false;
+	UpdateMovementSpeed();
 
-	GetCharacterMovement()->MaxWalkSpeed = BaseMoveSpeed;
+	UE_LOG(LogTemp, Warning, TEXT("<<< SPRINT DEACTIVATED! bIsSprinting = FALSE >>>"));
+}
 
-	if (SprintMontage && GetMesh() && GetMesh()->AnimScriptInstance)
+void ALMADefaultCharacter::UpdateStamina(float DeltaTime)
+{
+	if(bIsSprinting)
 	{
-		GetMesh()->AnimScriptInstance->Montage_Stop(0.2f, SprintMontage);
+		Stamina -= StaminaDrainRate * DeltaTime;
+		if (Stamina <= 0.0f)
+		{
+			Stamina = 0.0f;
+			StopSprint(); 
+		}
+	}
+	else
+	{
+		Stamina = FMath::Clamp(Stamina + StaminaRegenRate * DeltaTime, 0.0f, MaxStamina);
 	}
 }
 
-void ALMADefaultCharacter::SetIsSprintingInAnimation(bool bNewSprintingValue)
+void ALMADefaultCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(ALMADefaultCharacter, bIsSprinting);
+}
+
+void ALMADefaultCharacter::OnRep_IsSprinting()
+{
+	UpdateMovementSpeed();
+}
+
+void ALMADefaultCharacter::UpdateMovementSpeed()
+{
+	if (GetCharacterMovement())
+	{
+		GetCharacterMovement()->MaxWalkSpeed = bIsSprinting ? SprintMoveSpeed : MoveSpeed;
+
+	    UE_LOG(LogTemp, Warning, TEXT("MaxWalkSpeed set to %f"), GetCharacterMovement()->MaxWalkSpeed);
+	}
 }
