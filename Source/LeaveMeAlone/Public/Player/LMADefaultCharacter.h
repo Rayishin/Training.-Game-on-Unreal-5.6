@@ -7,6 +7,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
+#include "Weapon/LMAWeaponComponent.h"
 #include "LMADefaultCharacter.generated.h"
 
 
@@ -102,6 +103,15 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
 	class UInputAction* IA_Sprint;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Components")
+	ULMAWeaponComponent* WeaponComponent;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* IA_Fire;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
+	class UInputAction* IA_Reload;
+
 public:	
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -109,6 +119,9 @@ public:
 	virtual void MoveForward(const FInputActionValue& Value);
 	virtual void MoveRight(const FInputActionValue& Value);
 	virtual void ZoomCamera(const FInputActionValue& Value);
+	virtual void Reload(const FInputActionValue& Value);
+	virtual void OnStartFire(const FInputActionValue& Value);
+	virtual void OnStopFire(const FInputActionValue& Value);
 
 	UFUNCTION()
 	ULMAHealthComponent* GetHealthComponent() const { return HealthComponent; }
@@ -131,6 +144,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Stamina")
 	float GetMaxStamina() const { return MaxStamina; }
+
+	bool bIsFiring = false;
+
+	FTimerHandle FireTimerHandle;
+
+	void TryFire();
 
 private:
 	float YRotation = -75.0f;

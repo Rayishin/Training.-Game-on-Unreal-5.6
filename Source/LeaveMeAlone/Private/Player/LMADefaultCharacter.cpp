@@ -13,6 +13,8 @@
 #include "GameFramework/PlayerController.h"
 #include "Animation/AnimInstanceProxy.h"
 #include "Net/UnrealNetwork.h"
+#include "Weapon/LMAWeaponComponent.h"
+#include "Weapon/LMABaseWeapon.h"
 
 
 ALMADefaultCharacter::ALMADefaultCharacter()
@@ -66,6 +68,8 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to create CurrentCursor!"));
 	}
+
+	WeaponComponent = CreateDefaultSubobject<ULMAWeaponComponent>(TEXT("WeaponComponent"));
 }
 
 void ALMADefaultCharacter::BeginPlay()
@@ -184,6 +188,7 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(IA_MoveForward, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveForward);
 		EnhancedInputComponent->BindAction(IA_MoveRight, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveRight);
 		EnhancedInputComponent->BindAction(IA_ZoomCameraAction, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::ZoomCamera);
+		EnhancedInputComponent->BindAction(IA_Reload, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Reload);
 
 		if (IA_Sprint)
 		{
@@ -194,6 +199,12 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		else
 		{
 			UE_LOG(LogTemp, Error, TEXT("IA_Sprint is null!"));
+		}
+		
+		if (IA_Fire)
+		{
+			EnhancedInputComponent->BindAction(IA_Fire, ETriggerEvent::Started, this, &ALMADefaultCharacter::OnStartFire);
+			EnhancedInputComponent->BindAction(IA_Fire, ETriggerEvent::Completed, this, &ALMADefaultCharacter::OnStopFire);
 		}
 	}
 	else
@@ -340,5 +351,50 @@ void ALMADefaultCharacter::UpdateMovementSpeed()
 		GetCharacterMovement()->MaxWalkSpeed = bIsSprinting ? SprintMoveSpeed : MoveSpeed;
 
 	    UE_LOG(LogTemp, Warning, TEXT("MaxWalkSpeed set to %f"), GetCharacterMovement()->MaxWalkSpeed);
+	}
+}
+
+void ALMADefaultCharacter::OnStartFire(const FInputActionValue& Value)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Fire button pressed."));
+	if (WeaponComponent && !WeaponComponent->AnimReloading)
+	{
+		float FireRate = 0.1f;
+		GetWorldTimerManager().SetTimer(FireTimerHandle, this, &ALMADefaultCharacter::TryFire, FireRate, true, 0.0f);
+	}
+}
+
+void ALMADefaultCharacter::OnStopFire(const FInputActionValue& Value)
+{
+	UE_LOG(LogTemp, Warning, TEXT("Fire button released."));
+	GetWorldTimerManager().ClearTimer(FireTimerHandle);
+
+	if (WeaponComponent && WeaponComponent->Weapon && WeaponComponent->Weapon->IsCurrentClipEmpty())
+	{
+		WeaponComponent->AutoReload();
+	}
+}
+
+void ALMADefaultCharacter::Reload(const FInputActionValue& Value)
+{
+	if (bIsSprinting)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot reload while sprinting"));
+		return;
+	}
+
+	UE_LOG(LogTemp, Warning, TEXT("ALMADefaultCharacter: Reload button pressed."));
+	if (WeaponComponent && !WeaponComponent->AnimReloading)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ALMADefaultCharacter: Calling WeaponComponent->Reload()."));
+		WeaponComponent->AutoReload();
+	}
+}
+
+void ALMADefaultCharacter::TryFire()
+{
+	if (WeaponComponent && !WeaponComponent->AnimReloading)
+	{
+		WeaponComponent->Fire();
 	}
 }
