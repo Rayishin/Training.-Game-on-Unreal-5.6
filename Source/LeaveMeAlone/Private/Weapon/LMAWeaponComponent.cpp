@@ -205,3 +205,15 @@ void ULMAWeaponComponent::OnClipFullCallback(USkeletalMeshComponent* SkeletalMes
 {
 	UE_LOG(LogTemp, Warning, TEXT("Clip full callback triggered."));
 }
+
+bool ULMAWeaponComponent::GetCurrentWeaponAmmo(FAmmoWeapon& AmmoWeapon) const
+{
+	if (!Weapon)
+	{
+		return false;
+	}
+
+	AmmoWeapon = Weapon->GetAmmoWeapon();
+
+	return true;
+}

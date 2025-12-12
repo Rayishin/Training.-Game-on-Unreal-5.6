@@ -67,6 +67,8 @@ public:
 	int32 GetBullets() const { return AmmoWeapon.Bullets; }
 	int32 GetClips() const { return AmmoWeapon.Clips; }
 	bool IsInfinite() const { return AmmoWeapon.Infinite; }
+	
+	FAmmoWeapon GetAmmoWeapon() const { return AmmoWeapon; }
 
 protected:
 	

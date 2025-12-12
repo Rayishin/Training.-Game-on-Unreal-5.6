@@ -38,6 +38,9 @@ public:
 	void PerformReload();
     bool IsClipFull() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
+	bool GetCurrentWeaponAmmo(FAmmoWeapon& AmmoWeapon) const;
+
 protected:
 	
 	virtual void BeginPlay() override;

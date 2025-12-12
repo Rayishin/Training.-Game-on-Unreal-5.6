@@ -15,6 +15,7 @@
 #include "Net/UnrealNetwork.h"
 #include "Weapon/LMAWeaponComponent.h"
 #include "Weapon/LMABaseWeapon.h"
+#include "LMAGameMode.h"
 
 
 ALMADefaultCharacter::ALMADefaultCharacter()
@@ -100,9 +101,6 @@ void ALMADefaultCharacter::BeginPlay()
 	if (HealthComponent)
 	{
 		HealthComponent->OnDeath.AddUObject(this, &ALMADefaultCharacter::OnDeath);
-
-		OnHealthChanged(HealthComponent->GetHealth());
-		HealthComponent->OnHealthChanged.AddUObject(this, &ALMADefaultCharacter::OnHealthChanged);
 	}
 
 
@@ -256,6 +254,8 @@ void ALMADefaultCharacter::OnDeath()
 	{
 		Controller->ChangeState(NAME_Spectating);
 	}
+
+	OnDeath_BP();
 }
 
 void ALMADefaultCharacter::RotationPlayerOnCursor()
@@ -282,11 +282,6 @@ void ALMADefaultCharacter::RotationPlayerOnCursor()
 			PC->SetControlRotation(NewControllerRot);
 		}
 	}
-}
-
-void ALMADefaultCharacter::OnHealthChanged(float NewHealth)
-{
-	GEngine->AddOnScreenDebugMessage(-1, 2.0f, FColor::Red, FString::Printf(TEXT("Health = %f"), NewHealth));
 }
 
 void ALMADefaultCharacter::StartSprint()

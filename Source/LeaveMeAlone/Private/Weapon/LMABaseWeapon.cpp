@@ -68,6 +68,7 @@ void ALMABaseWeapon::ChangeClip()
 		CurrentClipBullets = MaxClipBullets;
 		AmmoWeapon.Clips--;
 
+		AmmoWeapon.Bullets = CurrentClipBullets;
 		OnClipFull.Broadcast(WeaponComponent);
 	}
 }
@@ -88,6 +89,7 @@ void ALMABaseWeapon::DecrementBullets()
 	}
 
 	CurrentClipBullets--;
+	AmmoWeapon.Bullets = CurrentClipBullets;
 	UE_LOG(LogTemp, Warning, TEXT("ALMABaseWeapon: DecrementBullets. CurrentClipBullets: %d"), CurrentClipBullets);
 
 	if (CurrentClipBullets <= 0)

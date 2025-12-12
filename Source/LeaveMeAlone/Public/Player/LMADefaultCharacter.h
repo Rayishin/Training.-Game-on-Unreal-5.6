@@ -151,6 +151,9 @@ public:
 
 	void TryFire();
 
+	UFUNCTION(BlueprintImplementableEvent, Category = "Character")
+	void OnDeath_BP();
+
 private:
 	float YRotation = -75.0f;
 	float ArmLength = 1400.0f;
@@ -159,8 +162,6 @@ private:
 	void OnDeath();
 
 	void RotationPlayerOnCursor();
-
-	void OnHealthChanged(float NewHealth);
 
 	FInputActionValue OnSprintPressed;
 	FInputActionValue OnSprintReleased;
