@@ -70,14 +70,10 @@ void ALMABaseWeapon::Shoot()
 
 void ALMABaseWeapon::ChangeClip()
 {
-	if (AmmoWeapon.Clips > 0)
-	{
 		CurrentClipBullets = MaxClipBullets;
-		AmmoWeapon.Clips--;
 
 		AmmoWeapon.Bullets = CurrentClipBullets;
 		OnClipFull.Broadcast(WeaponComponent);
-	}
 }
 
 bool ALMABaseWeapon::IsCurrentClipEmpty() const

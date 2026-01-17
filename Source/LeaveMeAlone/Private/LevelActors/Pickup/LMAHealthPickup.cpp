@@ -7,43 +7,27 @@
 
 ALMAHealthPickup::ALMAHealthPickup()
 {
-
 	PrimaryActorTick.bCanEverTick = true;
 
-	SphereComponent = CreateDefaultSubobject<USphereComponent>("SphereComponent");
+	SphereComponent = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComponent"));
 	SphereComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
 	SetRootComponent(SphereComponent);
-
 }
 
 void ALMAHealthPickup::BeginPlay()
 {
 	Super::BeginPlay();
-	
 }
 
 void ALMAHealthPickup::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-}
-
-void ALMAHealthPickup::PickupWasTaken()
-{
-	SphereComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
-	GetRootComponent()->SetVisibility(false, true);
-	FTimerHandle RespawnTimerHandle;
-	GetWorldTimerManager().SetTimer(RespawnTimerHandle, this, &ALMAHealthPickup::RespawnPickup, RespawnTime);
-}
-
-void ALMAHealthPickup::RespawnPickup()
-{
-	SphereComponent->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Overlap);
-	GetRootComponent()->SetVisibility(true, true);
 }
 
 bool ALMAHealthPickup::GivePickup(ALMADefaultCharacter* Character)
 {
+	if (!Character) return false;
+
 	const auto HealthComponent = Character->GetHealthComponent();
 	if (!HealthComponent) return false;
 
@@ -53,10 +37,15 @@ bool ALMAHealthPickup::GivePickup(ALMADefaultCharacter* Character)
 void ALMAHealthPickup::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	Super::NotifyActorBeginOverlap(OtherActor);
-	const auto Charcter = Cast<ALMADefaultCharacter>(OtherActor);
 
-	if (GivePickup(Charcter))
+	if (bIsTaken) return;
+
+	if (ALMADefaultCharacter* Player = Cast<ALMADefaultCharacter>(OtherActor))
 	{
-		PickupWasTaken();
+		if (GivePickup(Player))
+		{
+			bIsTaken = true;
+			Destroy();
+		}
 	}
 }

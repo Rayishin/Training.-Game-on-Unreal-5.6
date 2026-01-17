@@ -135,13 +135,7 @@ bool ULMAWeaponComponent::CanReload() const
 		UE_LOG(LogTemp, Warning, TEXT("ULMAWeaponComponent: Clip is full."));
 		return false;
 	}
-
-	if (Weapon->GetClips() <= 0)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("ULMAWeaponComponent: No clips left."));
-		return false;
-	}
-
+	
 	UE_LOG(LogTemp, Warning, TEXT("ULMAWeaponComponent: CanReload() returned true."));
 	return true;
 }

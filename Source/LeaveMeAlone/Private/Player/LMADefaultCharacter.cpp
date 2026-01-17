@@ -22,19 +22,26 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
-	SpringArmComponent = CreateDefaultSubobject<USpringArmComponent>(TEXT("SpringArm"));
-	SpringArmComponent->SetupAttachment(GetRootComponent());
-	SpringArmComponent->SetUsingAbsoluteRotation(true);
-	SpringArmComponent->TargetArmLength = ArmLength;
-	SpringArmComponent->SetRelativeRotation(FRotator(YRotation, 0.0f, 0.0f));
-	SpringArmComponent->bDoCollisionTest = false;
-	SpringArmComponent->bEnableCameraLag = false;
-	SpringArmComponent->bEnableCameraRotationLag = false;
+	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
+	CameraBoom->SetupAttachment(RootComponent);
+	CameraBoom->TargetArmLength = 350.0f;
+	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->SetRelativeRotation(FRotator(-25.0f, 0.0f, 0.0f));
+	CameraBoom->bUsePawnControlRotation = true;
+	CameraBoom->bDoCollisionTest = false;      
+	CameraBoom->bEnableCameraLag = true;       
+	CameraBoom->CameraLagSpeed = 20.0f;
 
-	CameraComponent = CreateDefaultSubobject<UCameraComponent>(TEXT("CameraComponent"));
-	CameraComponent->SetupAttachment(SpringArmComponent);
-	CameraComponent->SetFieldOfView(FOV);
-	CameraComponent->bUsePawnControlRotation = false;
+	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	FollowCamera->bUsePawnControlRotation = false;
+	FollowCamera->FieldOfView = 90.0f;
+
+	DeathCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("DeathCamera"));
+	DeathCamera->SetupAttachment(RootComponent);
+	DeathCamera->bUsePawnControlRotation = false;
+	DeathCamera->FieldOfView = 90.0f;
+	DeathCamera->SetActive(false);
 
 	HealthComponent = CreateDefaultSubobject<ULMAHealthComponent>(TEXT("HealthComponent"));
 
@@ -43,31 +50,12 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 		CharMove->bOrientRotationToMovement = false;
 	}
 
-	TargetArmLength = SpringArmComponent->TargetArmLength;
+	TargetArmLength = CameraBoom->TargetArmLength;
 
 	static ConstructorHelpers::FObjectFinder<UInputAction> ZoomCameraRef(TEXT("/Game/Input/IA_ZoomCamera"));
 	if (ZoomCameraRef.Succeeded())
 	{
 		IA_ZoomCameraAction = ZoomCameraRef.Object;
-	}
-
-	bUseControllerRotationPitch = false;
-	bUseControllerRotationYaw = true;
-	bUseControllerRotationRoll = false;
-
-	CurrentCursor = CreateDefaultSubobject<UDecalComponent>(TEXT("CurrentCursor"));
-	if (CurrentCursor)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("CurrentCursor created successfully."));
-
-		CurrentCursor->SetupAttachment(RootComponent);
-		CurrentCursor->DecalSize = FVector(50.0f, 50.0f, 50.0f);
-		CurrentCursor->SetRelativeRotation(FRotator(-90.0f, 0.0f, 0.0f));
-		CurrentCursor->SetVisibility(false);
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("Failed to create CurrentCursor!"));
 	}
 
 	WeaponComponent = CreateDefaultSubobject<ULMAWeaponComponent>(TEXT("WeaponComponent"));
@@ -76,27 +64,6 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 void ALMADefaultCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-
-
-	if (CursorMaterial)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Cursor material is assigned."));
-
-		UMaterialInstanceDynamic* DynamicMaterial = UMaterialInstanceDynamic::Create(CursorMaterial, this);
-		if (DynamicMaterial)
-		{
-			CurrentCursor->SetMaterial(0, DynamicMaterial);
-			UE_LOG(LogTemp, Warning, TEXT("Dynamic Material applied to CurrentCursor."));
-		}
-		else
-		{
-			UE_LOG(LogTemp, Error, TEXT("Failed to create Dynamic Material!"));
-		}
-	}
-	else
-	{
-		UE_LOG(LogTemp, Error, TEXT("CursorMaterial is not assigned in editor!"));
-	}
 
 	if (HealthComponent)
 	{
@@ -117,61 +84,6 @@ void ALMADefaultCharacter::Tick(float DeltaTime )
 {
 	Super::Tick(DeltaTime);
 
-
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC) return;
-
-	FHitResult ResultHit;
-	bool bHit = PC->GetHitResultUnderCursor(ECC_Visibility, true, ResultHit);
-
-	UE_LOG(LogTemp, Warning, TEXT("Hit under cursor: %s"), bHit ? TEXT("Yes") : TEXT("No"));
-
-	if (!bHit || !CurrentCursor)
-	{
-		if (CurrentCursor)
-		{
-			CurrentCursor->SetVisibility(false);
-		}
-			return;
-	}
-
-	UE_LOG(LogTemp, Warning, TEXT("Hit location: %s"), *ResultHit.Location.ToString());
-
-	CurrentCursor->SetVisibility(true);
-	FVector HitLocation = ResultHit.Location; 
-	CurrentCursor->SetWorldLocation(HitLocation);
-
-	// FRotator DecalRotator = ResultHit.Normal.Rotation();
-	// DecalRotator.Pitch += 90.f;
-	// CurrentCursor->SetWorldRotation(DecalRotator.Quaternion());
-
-	// UE_LOG(LogTemp, Warning, TEXT("Decal rotation: %s"), *DecalRotator.ToString());
-
-	FVector HitNormal = ResultHit.Normal;
-	FVector TargetForward = HitNormal;
-	FVector TargetUp = FVector(0, 0, 1);
-	FQuat DecalRotation = FQuat::FindBetweenVectors(FVector(1, 0, 0), TargetForward);
-	CurrentCursor->SetWorldRotation(DecalRotation);
-
-	FVector Direction = ResultHit.Location - GetActorLocation();
-	Direction.Z = 0.0f;
-
-	if (!Direction.IsNearlyZero())
-	{
-			FRotator LookAtRot = FRotationMatrix::MakeFromX(Direction).Rotator();
-			LookAtRot.Pitch = 0.0f;
-			LookAtRot.Roll = 0.0f;
-
-			FRotator CurrentControllerRot = PC->GetControlRotation();
-			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, GetWorld()->GetDeltaSeconds(), 5.0f);
-			PC->SetControlRotation(NewControllerRot);
-	}
-
-	if (!(HealthComponent && HealthComponent->IsDead()))
-	{
-		RotationPlayerOnCursor();
-	}
-
 	UpdateStamina(DeltaTime);
 }
 
@@ -187,6 +99,8 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(IA_MoveRight, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::MoveRight);
 		EnhancedInputComponent->BindAction(IA_ZoomCameraAction, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::ZoomCamera);
 		EnhancedInputComponent->BindAction(IA_Reload, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Reload);
+		EnhancedInputComponent->BindAction(IA_Turn, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Turn);
+		EnhancedInputComponent->BindAction(IA_LookUp, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::LookUp);
 
 		if (IA_Sprint)
 		{
@@ -232,56 +146,63 @@ void ALMADefaultCharacter::ZoomCamera(const FInputActionValue& Value)
 		TargetArmLength -= AxisValue * ZoomSpeed * 15.0f;
 		TargetArmLength = FMath::Clamp(TargetArmLength, MinZoomDistance, MaxZoomDistance);
 
-		if (SpringArmComponent)
+		if (CameraBoom)
 		{
-			SpringArmComponent->TargetArmLength = TargetArmLength;
+			CameraBoom->TargetArmLength = TargetArmLength;
 		}
 	}
 }
 
 void ALMADefaultCharacter::OnDeath()
 {
-	if (CurrentCursor)
+	if (DeathMontage && GetMesh())
 	{
-		CurrentCursor->DestroyRenderState_Concurrent();
+		GetMesh()->PlayAnimation(DeathMontage, 1.0f);
 	}
 
-	PlayAnimMontage(DeathMontage);
-	GetCharacterMovement()->DisableMovement();
-	SetLifeSpan(5.0f);
+	if (CameraBoom)
+	{
+		CameraBoom->bEnableCameraLag = false;
+	}
+
+	if (FollowCamera)
+	{
+		FollowCamera->SetActive(false);
+	}
+
+	if (DeathCamera)
+	{
+		FVector DeathLocation = GetActorLocation();
+		FRotator DeathRotation = GetActorRotation();
+
+		FVector Origin;
+		FVector BoxExtent;
+		GetActorBounds(false, Origin, BoxExtent);
+
+		FVector CameraOffset = FVector(-BoxExtent.X * 2.0f, 0.0f, BoxExtent.Z * 1.5f);
+		DeathCamera->SetWorldLocation(DeathLocation + CameraOffset);
+
+		FRotator CameraRotation = FRotator(-10.0f, DeathRotation.Yaw, 0.0f);
+		DeathCamera->SetWorldRotation(CameraRotation);
+
+		DeathCamera->SetActive(true);
+
+		if (APlayerController* PC = Cast<APlayerController>(Controller))
+		{
+			PC->SetViewTargetWithBlend(this, 0.3f); 
+		}
+	}
 
 	if (Controller)
 	{
-		Controller->ChangeState(NAME_Spectating);
+		Controller->SetIgnoreMoveInput(false);
+		Controller->SetIgnoreLookInput(false);
 	}
+
+	GetCharacterMovement()->DisableMovement();
+	SetLifeSpan(5.0f);
 
 	OnDeath_BP();
-}
-
-void ALMADefaultCharacter::RotationPlayerOnCursor()
-{
-
-	APlayerController* PC = Cast<APlayerController>(GetController());
-	if (!PC) return;
-
-	FHitResult ResultHit;
-	if (PC->GetHitResultUnderCursor(ECC_Visibility, true, ResultHit))
-	{
-
-		FVector Direction = ResultHit.Location - GetActorLocation();
-		Direction.Z = 0.0f;
-
-		if (!Direction.IsNearlyZero())
-		{
-			FRotator LookAtRot = FRotationMatrix::MakeFromX(Direction).Rotator();
-			LookAtRot.Pitch = 0.0f;
-			LookAtRot.Roll = 0.0f;
-
-			FRotator CurrentControllerRot = PC->GetControlRotation();
-			FRotator NewControllerRot = FMath::RInterpTo(CurrentControllerRot, LookAtRot, GetWorld()->GetDeltaSeconds(), 5.0f);
-			PC->SetControlRotation(NewControllerRot);
-		}
-	}
 }
 
 void ALMADefaultCharacter::StartSprint()
@@ -392,4 +313,14 @@ void ALMADefaultCharacter::TryFire()
 	{
 		WeaponComponent->Fire();
 	}
+}
+
+void ALMADefaultCharacter::Turn(const FInputActionValue& Value)
+{
+	AddControllerYawInput(Value.Get<float>() * MouseSensitivity);
+}
+
+void ALMADefaultCharacter::LookUp(const FInputActionValue& Value)
+{
+	AddControllerPitchInput(Value.Get<float>() * MouseSensitivity);
 }
