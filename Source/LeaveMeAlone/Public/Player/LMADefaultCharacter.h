@@ -8,6 +8,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "Weapon/LMAWeaponComponent.h"
+#include "Interface/InteractableInterface.h"
 #include "LMADefaultCharacter.generated.h"
 
 
@@ -121,8 +122,8 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	float MouseSensitivity = 0.5f;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Camera")
-	UCameraComponent* DeathCamera;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	class UInputAction* IA_Interact;
 
 public:	
 
@@ -136,6 +137,7 @@ public:
 	virtual void OnStopFire(const FInputActionValue& Value);
 	virtual void Turn(const FInputActionValue& Value);
 	virtual void LookUp(const FInputActionValue& Value);
+	virtual void Interact(const FInputActionValue& Value);
 
 	UFUNCTION()
 	ULMAHealthComponent* GetHealthComponent() const { return HealthComponent; }

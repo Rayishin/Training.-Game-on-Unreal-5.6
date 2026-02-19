@@ -37,12 +37,6 @@ ALMADefaultCharacter::ALMADefaultCharacter()
 	FollowCamera->bUsePawnControlRotation = false;
 	FollowCamera->FieldOfView = 90.0f;
 
-	DeathCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("DeathCamera"));
-	DeathCamera->SetupAttachment(RootComponent);
-	DeathCamera->bUsePawnControlRotation = false;
-	DeathCamera->FieldOfView = 90.0f;
-	DeathCamera->SetActive(false);
-
 	HealthComponent = CreateDefaultSubobject<ULMAHealthComponent>(TEXT("HealthComponent"));
 
 	if (UCharacterMovementComponent* CharMove = GetCharacterMovement())
@@ -101,6 +95,7 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(IA_Reload, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Reload);
 		EnhancedInputComponent->BindAction(IA_Turn, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Turn);
 		EnhancedInputComponent->BindAction(IA_LookUp, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::LookUp);
+		EnhancedInputComponent->BindAction(IA_Interact, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Interact);
 
 		if (IA_Sprint)
 		{
@@ -160,43 +155,23 @@ void ALMADefaultCharacter::OnDeath()
 		GetMesh()->PlayAnimation(DeathMontage, 1.0f);
 	}
 
-	if (CameraBoom)
+	if (APlayerController* PC = Cast<APlayerController>(Controller))
 	{
-		CameraBoom->bEnableCameraLag = false;
-	}
-
-	if (FollowCamera)
-	{
-		FollowCamera->SetActive(false);
-	}
-
-	if (DeathCamera)
-	{
-		FVector DeathLocation = GetActorLocation();
-		FRotator DeathRotation = GetActorRotation();
-
-		FVector Origin;
-		FVector BoxExtent;
-		GetActorBounds(false, Origin, BoxExtent);
-
-		FVector CameraOffset = FVector(-BoxExtent.X * 2.0f, 0.0f, BoxExtent.Z * 1.5f);
-		DeathCamera->SetWorldLocation(DeathLocation + CameraOffset);
-
-		FRotator CameraRotation = FRotator(-10.0f, DeathRotation.Yaw, 0.0f);
-		DeathCamera->SetWorldRotation(CameraRotation);
-
-		DeathCamera->SetActive(true);
-
-		if (APlayerController* PC = Cast<APlayerController>(Controller))
-		{
-			PC->SetViewTargetWithBlend(this, 0.3f); 
-		}
+		PC->SetViewTargetWithBlend(this, 3.5f);
 	}
 
 	if (Controller)
 	{
-		Controller->SetIgnoreMoveInput(false);
-		Controller->SetIgnoreLookInput(false);
+		Controller->SetIgnoreMoveInput(true);
+	}
+
+	if (CameraBoom)
+	{
+		CameraBoom->bUsePawnControlRotation = false;
+		float CharacterHeight = GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.0f;
+		CameraBoom->TargetArmLength = CharacterHeight * 3.0f;
+		CameraBoom->bEnableCameraLag = true;  
+		CameraBoom->CameraLagSpeed = 3.0f;
 	}
 
 	GetCharacterMovement()->DisableMovement();
@@ -323,4 +298,36 @@ void ALMADefaultCharacter::Turn(const FInputActionValue& Value)
 void ALMADefaultCharacter::LookUp(const FInputActionValue& Value)
 {
 	AddControllerPitchInput(Value.Get<float>() * MouseSensitivity);
+}
+
+void ALMADefaultCharacter::Interact(const FInputActionValue& Value)
+{
+	APlayerController* PC = GetController<APlayerController>();
+	if (!PC) return;
+
+	FVector Start = GetActorLocation() + FVector(0, 0, 50);
+	FVector End = Start + (PC->GetControlRotation().Vector() * 200.0f);
+
+	FHitResult Hit;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(this);
+
+	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HIT! Actor: %s"), *Hit.GetActor()->GetName());
+
+		if (Hit.GetActor() && Hit.GetActor()->Implements<UInteractableInterface>())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Calling Interact on: %s"), *Hit.GetActor()->GetName());
+			IInteractableInterface::Execute_Interact(Hit.GetActor(), this);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Actor doesn't implement interface!"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("LineTrace hit NOTHING!"));
+	}
 }
