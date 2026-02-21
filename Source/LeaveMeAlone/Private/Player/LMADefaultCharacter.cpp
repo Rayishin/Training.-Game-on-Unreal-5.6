@@ -95,7 +95,7 @@ void ALMADefaultCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInpu
 		EnhancedInputComponent->BindAction(IA_Reload, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Reload);
 		EnhancedInputComponent->BindAction(IA_Turn, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Turn);
 		EnhancedInputComponent->BindAction(IA_LookUp, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::LookUp);
-		EnhancedInputComponent->BindAction(IA_Interact, ETriggerEvent::Triggered, this, &ALMADefaultCharacter::Interact);
+		EnhancedInputComponent->BindAction(IA_Interact, ETriggerEvent::Completed, this, &ALMADefaultCharacter::Interact);
 
 		if (IA_Sprint)
 		{
@@ -284,6 +284,12 @@ void ALMADefaultCharacter::Reload(const FInputActionValue& Value)
 
 void ALMADefaultCharacter::TryFire()
 {
+	if (bIsSprinting)  
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Cannot fire while sprinting!"));
+		return;  
+	}
+
 	if (WeaponComponent && !WeaponComponent->AnimReloading)
 	{
 		WeaponComponent->Fire();
@@ -302,11 +308,13 @@ void ALMADefaultCharacter::LookUp(const FInputActionValue& Value)
 
 void ALMADefaultCharacter::Interact(const FInputActionValue& Value)
 {
+	UE_LOG(LogTemp, Warning, TEXT("=== Interaction is pressed ==="));
+
 	APlayerController* PC = GetController<APlayerController>();
 	if (!PC) return;
 
-	FVector Start = GetActorLocation() + FVector(0, 0, 50);
-	FVector End = Start + (PC->GetControlRotation().Vector() * 200.0f);
+	FVector Start = PC->GetPawn()->GetActorLocation();
+	FVector End = Start + (PC->GetControlRotation().Vector() * 500.0f);
 
 	FHitResult Hit;
 	FCollisionQueryParams Params;
@@ -314,20 +322,23 @@ void ALMADefaultCharacter::Interact(const FInputActionValue& Value)
 
 	if (GetWorld()->LineTraceSingleByChannel(Hit, Start, End, ECC_Visibility, Params))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("HIT! Actor: %s"), *Hit.GetActor()->GetName());
+		UE_LOG(LogTemp, Warning, TEXT("LineTrace got into: %s"), *Hit.GetActor()->GetName());
 
-		if (Hit.GetActor() && Hit.GetActor()->Implements<UInteractableInterface>())
+		if (Hit.GetActor())
 		{
-			UE_LOG(LogTemp, Warning, TEXT("Calling Interact on: %s"), *Hit.GetActor()->GetName());
-			IInteractableInterface::Execute_Interact(Hit.GetActor(), this);
-		}
-		else
-		{
-			UE_LOG(LogTemp, Warning, TEXT("Actor doesn't implement interface!"));
+			if (Hit.GetActor()->Implements<UInteractableInterface>())
+			{
+				UE_LOG(LogTemp, Warning, TEXT("The actor implements the interface! Calling Interact!"));
+				IInteractableInterface::Execute_Interact(Hit.GetActor(), this);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("The actor does NOT implement the interface!"));
+			}
 		}
 	}
 	else
 	{
-		UE_LOG(LogTemp, Warning, TEXT("LineTrace hit NOTHING!"));
+		UE_LOG(LogTemp, Warning, TEXT("LineTrace I DIDN't hit ANYTHING! Increase the distance!"));
 	}
 }
